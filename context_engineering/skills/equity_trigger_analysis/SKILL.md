@@ -3,6 +3,20 @@
 Use this skill when you already have fundamental metrics, technicals, risk metrics, and news signals for a stock
 and need to map them into GREEN FLAGS, RED FLAGS, and a VERDICT.
 
+## Data Quality Context
+
+**IMPORTANT**: You will receive a DATA QUALITY CONTEXT section that includes:
+- **Completeness Score** (0-100%): Percentage of available metrics
+- **Confidence Level** (High/Medium/Low): Overall data reliability
+- **Missing Critical Metrics**: List of unavailable essential data points
+
+**Rules for Handling Missing Data:**
+1. If Completeness Score < 70%, you MUST add a "⚠️ Data Quality Warning" section to your report
+2. If critical metrics are missing, explicitly state limitations in your verdict
+3. Do NOT make strong Buy/Sell recommendations with Low confidence data
+4. Use alternative signals when primary metrics are unavailable (e.g., use news sentiment if financials are incomplete)
+5. Always acknowledge data gaps in your analysis
+
 ## Available Financial Metrics
 
 The `get_deep_financials` tool provides the following metrics:

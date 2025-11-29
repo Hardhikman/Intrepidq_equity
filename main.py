@@ -171,9 +171,29 @@ def analyze(
             # In LangGraph, we pass messages to the agent
             # Format the system prompt and user message
             from context_engineering import deep_prompt
+            from tools.validation import validate_data_completeness, format_validation_report
+            from tools.definitions import get_deep_financials_tool
+            
+            # Pre-fetch financial data for validation
+            console.print("[dim]📊 Fetching financial data...[/dim]")
+            financial_result = get_deep_financials_tool.func(ticker)
+            
+            # Validate data completeness
+            if financial_result.get("status") == "success":
+                validation_result = validate_data_completeness(financial_result["data"])
+                validation_report = format_validation_report(validation_result, ticker)
+                
+                # Display data quality summary
+                console.print(f"[dim]Data Completeness: {validation_result['completeness_score']}% | Confidence: {validation_result['confidence_level']}[/dim]\n")
+                
+                # Inject validation context into prompt
+                data_quality_context = f"\n\n**DATA QUALITY CONTEXT:**\n{validation_report}\n"
+            else:
+                data_quality_context = "\n\n**DATA QUALITY WARNING:** Failed to fetch financial data.\n"
+                validation_report = ""
             
             # Get the system message content from the prompt template
-            system_message_content = deep_prompt.messages[0].prompt.template
+            system_message_content = deep_prompt.messages[0].prompt.template + data_quality_context
             user_message = f"Perform a deep equity analysis for ticker {ticker}."
 
             if stream:
