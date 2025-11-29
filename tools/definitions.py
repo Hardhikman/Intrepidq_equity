@@ -181,24 +181,84 @@ def _get_deep_financials(ticker: str) -> Dict[str, Any]:
         try:
             q_fin = stock.quarterly_financials
             q_bal = stock.quarterly_balance_sheet
+            q_cf = stock.quarterly_cashflow
             
             if not q_fin.empty and not q_bal.empty:
-                # Get last 4 quarters if available
+                # Extract dates and convert to string
+                quarter_dates = [d.strftime('%Y-%m-%d') for d in q_fin.columns[:4]] if not q_fin.empty else []
+                
+                # Revenue & Debt (existing)
                 recent_rev = q_fin.loc['Total Revenue'].head(4).tolist() if 'Total Revenue' in q_fin.index else []
                 recent_debt = q_bal.loc['Total Debt'].head(4).tolist() if 'Total Debt' in q_bal.index else []
                 
-                # Extract dates and convert to string
-                quarter_dates = [d.strftime('%Y-%m-%d') for d in q_fin.columns[:4]] if not q_fin.empty else []
+                # CapEx Tracking (NEW)
+                recent_capex = []
+                if not q_cf.empty and 'Capital Expenditure' in q_cf.index:
+                    recent_capex = q_cf.loc['Capital Expenditure'].head(4).tolist()
+                elif not q_cf.empty and 'Capital Expenditures' in q_cf.index:
+                    recent_capex = q_cf.loc['Capital Expenditures'].head(4).tolist()
+                
+                capex_trend = "increasing" if len(recent_capex) > 1 and abs(recent_capex[0]) > abs(recent_capex[1]) else "decreasing"
+                
+                # Retained Earnings (NEW)
+                recent_retained_earnings = []
+                if 'Retained Earnings' in q_bal.index:
+                    recent_retained_earnings = q_bal.loc['Retained Earnings'].head(4).tolist()
+                
+                retained_earnings_trend = "increasing" if len(recent_retained_earnings) > 1 and recent_retained_earnings[0] > recent_retained_earnings[1] else "decreasing"
 
                 financial_trends = {
                     "quarter_dates": quarter_dates, # [Newest, ..., Oldest]
                     "revenue_quarters": recent_rev, 
                     "debt_quarters": recent_debt,
+                    "capex_quarters": recent_capex,
+                    "retained_earnings_quarters": recent_retained_earnings,
                     "revenue_trend": "increasing" if len(recent_rev) > 1 and recent_rev[0] > recent_rev[1] else "decreasing",
-                    "debt_trend": "decreasing" if len(recent_debt) > 1 and recent_debt[0] < recent_debt[1] else "increasing"
+                    "debt_trend": "decreasing" if len(recent_debt) > 1 and recent_debt[0] < recent_debt[1] else "increasing",
+                    "capex_trend": capex_trend,
+                    "retained_earnings_trend": retained_earnings_trend
                 }
         except Exception as e:
             print(f"Warning: Could not fetch financial trends: {e}")
+        
+        # --- 4. Volume Trends (NEW) ---
+        volume_trends = {}
+        if not hist.empty and 'Volume' in hist.columns:
+            # Calculate average volume for different periods
+            avg_volume_10d = hist['Volume'].tail(10).mean()
+            avg_volume_50d = hist['Volume'].tail(50).mean()
+            avg_volume_200d = hist['Volume'].tail(200).mean()
+            
+            # Recent volume spike detection
+            latest_volume = hist['Volume'].iloc[-1]
+            volume_spike = latest_volume > (avg_volume_50d * 1.5)  # 50% above average
+            
+            volume_trends = {
+                "latest_volume": int(latest_volume),
+                "avg_volume_10d": int(avg_volume_10d),
+                "avg_volume_50d": int(avg_volume_50d),
+                "avg_volume_200d": int(avg_volume_200d),
+                "volume_spike": volume_spike,
+                "volume_trend": "increasing" if avg_volume_10d > avg_volume_50d else "decreasing"
+            }
+        
+        # --- 5. Dividend Yield Trend (NEW) ---
+        dividend_trends = {}
+        try:
+            dividends = stock.dividends
+            if not dividends.empty and len(dividends) > 0:
+                # Get annual dividends for last 3 years
+                annual_divs = dividends.resample('Y').sum()
+                recent_annual_divs = annual_divs.tail(3).tolist()
+                div_years = [d.strftime('%Y') for d in annual_divs.tail(3).index]
+                
+                dividend_trends = {
+                    "annual_dividends": recent_annual_divs,
+                    "dividend_years": div_years,
+                    "dividend_trend": "increasing" if len(recent_annual_divs) > 1 and recent_annual_divs[-1] > recent_annual_divs[-2] else "decreasing"
+                }
+        except Exception as e:
+            print(f"Warning: Could not fetch dividend trends: {e}")
 
         financial_data = {
             "ticker": ticker,
@@ -235,7 +295,9 @@ def _get_deep_financials(ticker: str) -> Dict[str, Any]:
             # New: Technicals & Risk
             "technicals": technicals,
             "risk_metrics": risk_metrics,
-            "financial_trends": financial_trends
+            "financial_trends": financial_trends,
+            "volume_trends": volume_trends,
+            "dividend_trends": dividend_trends
         }
 
         return {

@@ -21,7 +21,9 @@ The `get_deep_financials` tool provides the following metrics:
 **New Metrics:**
 - `technicals`: Dictionary containing `rsi`, `macd`, `sma_50`, `sma_200`.
 - `risk_metrics`: Dictionary containing `volatility_annualized`, `max_drawdown`, `sharpe_ratio`.
-- `financial_trends`: Dictionary containing `revenue_trend`, `debt_trend` (based on last 4 quarters).
+- `financial_trends`: Dictionary containing `revenue_trend`, `debt_trend`, `capex_trend`, `retained_earnings_trend` (based on last 4 quarters).
+- `volume_trends`: Dictionary containing `latest_volume`, `avg_volume_10d`, `avg_volume_50d`, `volume_spike`, `volume_trend`.
+- `dividend_trends`: Dictionary containing `annual_dividends`, `dividend_years`, `dividend_trend`.
 
 ## Analysis Rules by Metric Category
 
@@ -54,7 +56,7 @@ The `get_deep_financials` tool provides the following metrics:
 - 🚩 High Risk: `max_drawdown < -0.50` (Lost >50% at some point)
 - 🟡 Moderate Risk: `volatility_annualized > 0.40` (High volatility)
 
-### 3. Financial Trends (New)
+### 3. Financial Trends
 
 **Debt Trend**
 - 🟢 Deleveraging: `debt_trend == "decreasing"` (Green Flag)
@@ -64,7 +66,29 @@ The `get_deep_financials` tool provides the following metrics:
 - 🟢 Growing: `revenue_trend == "increasing"`
 - 🚩 Shrinking: `revenue_trend == "decreasing"`
 
-### 4. Fundamental Analysis (Existing)
+**CapEx Trend (NEW)**
+- 🟢 Expanding CapEx: `capex_trend == "increasing"` (Growth investment)
+- 🟢 **Best Case**: CapEx increasing while Debt decreasing (Self-funded growth)
+- 🚩 CapEx increasing with Debt increasing (Leveraged expansion - risky)
+
+**Retained Earnings Trend (NEW)**
+- 🟢 Growing Retained Earnings: `retained_earnings_trend == "increasing"` (Reinvesting profits)
+- 🚩 Declining Retained Earnings: `retained_earnings_trend == "decreasing"` (Burning through reserves)
+
+### 4. Volume Analysis (NEW)
+
+**Volume Trends**
+- 🟢 Volume Spike: `volume_spike == True` (High interest, potential breakout)
+- 🟢 Increasing Volume: `volume_trend == "increasing"` (Growing interest)
+- 🚩 Decreasing Volume: `volume_trend == "decreasing"` (Declining interest)
+
+### 5. Dividend Analysis (NEW)
+
+**Dividend Trends**
+- 🟢 Growing Dividends: `dividend_trend == "increasing"` (Shareholder-friendly, stable cash flow)
+- 🚩 Declining Dividends: `dividend_trend == "decreasing"` (Possible cash flow issues)
+
+### 6. Fundamental Analysis (Existing)
 
 **Growth & Profitability**
 - 🟢 Strong growth: `revenue_growth > 0.15`
