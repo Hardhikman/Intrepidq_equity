@@ -17,7 +17,9 @@ The system uses a **4-agent pipeline** powered by Google Gemini and LangGraph:
 - **Fundamentals**: Revenue growth, margins, P/E, Debt/Equity, ROE, FCF
 - **Technicals**: RSI, MACD, SMA (50/200), Golden/Death Cross detection
 - **Risk Metrics**: Volatility, Max Drawdown, Sharpe Ratio
-- **Trends**: Quarterly revenue and debt trend analysis with dates
+- **Trends**: Quarterly revenue, debt, CapEx, and retained earnings tracking with dates
+- **Volume Analysis**: Volume trends, spike detection, and momentum tracking
+- **Dividend Tracking**: Yield analysis and payout ratio trends
 
 ### Qualitative Research
 - **News Integration**: Google News search for recent events
@@ -85,8 +87,14 @@ The report will be:
 # Analyze without saving to file
 python main.py analyze AAPL --no-save-file
 
+# Analyze with real-time event streaming (default)
+python main.py analyze GOOGL --stream
+
 # Interactive chat mode
 python main.py chat
+
+# Database maintenance
+python db_fileops/db_maintenance.py stats
 ```
 
 ## 📊 Output Example
@@ -119,13 +127,15 @@ Intrepidq_equity/
 │   ├── data_agent.py         # Data collection
 │   ├── validation_agent.py   # Quality validation
 │   ├── analysis_agent.py     # Investment analysis
-│   └── synthesis_agent.py    # Report synthesis
+│   ├── synthesis_agent.py    # Report synthesis
+│   └── chat_agent.py         # Chat interface agent
 ├── context_engineering/       # Prompts and skills
 │   ├── prompts.py            # Agent prompts
 │   └── skills/               # Analysis frameworks
 ├── tools/                     # Tool definitions
 │   ├── definitions.py        # Financial & news tools
-│   └── validation.py         # Data quality checks
+│   ├── validation.py         # Data quality checks
+│   └── chat_tools.py         # Chat-specific tools
 ├── main.py                    # CLI entry point
 ├── config.py                  # Configuration
 └── docs/                      # Documentation
@@ -153,17 +163,18 @@ Intrepidq_equity/
 ## 🔧 Configuration
 
 Edit `config.py` to customize:
-- **Model**: Google Gemini model selection
-- **Temperature**: LLM creativity (0-1)
+- **Model**: Google Gemini model selection (Default: `gemini-2.5-flash`)
+- **Temperature**: LLM creativity (Default: `0.0` for deterministic output)
+- **Database Retention**: Configure `ACTIVE_REPORTS_PER_TICKER` (Default: 3) and auto-cleanup settings
 - **User ID**: Default user identifier
 
 ## 📚 Documentation
 
-See the `docs/` directory for detailed documentation:
-- [PROJECT_SUMMARY.md](docs/PROJECT_SUMMARY.md) - Complete project overview
-- [validation_agent.md](docs/validation_agent.md) - Data quality system
-- [advanced_metrics.md](docs/advanced_metrics.md) - Metric definitions
-- [walkthrough.md](docs/walkthrough.md) - Feature walkthrough
+Detailed documentation is available in the `docs/` directory, covering:
+- **Project Overview**: Complete architecture and system summary.
+- **Operations**: Guides for interactive chat and database management.
+- **Metrics**: Definitions for advanced quantitative and risk metrics.
+- **Validation**: Details on the data quality and confidence scoring system.
 
 ## 🛠️ Technologies
 
@@ -178,4 +189,4 @@ See the `docs/` directory for detailed documentation:
 
 ## 📄 License
 
-See LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
