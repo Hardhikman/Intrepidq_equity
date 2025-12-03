@@ -17,11 +17,7 @@ from context_engineering import memory
 app = typer.Typer()
 console = Console(width=100)  # Set consistent width for better formatting
 
-
-# =============================================================================
 # HELPER FUNCTIONS
-# =============================================================================
-
 
 def _normalize_content(content):
     """
@@ -135,10 +131,7 @@ def _save_report_to_file(text: str, ticker: str, session_id: str) -> Path:
     filepath.write_text(formatted_text, encoding='utf-8')
     return filepath
 
-
-# =============================================================================
 # CLI COMMANDS
-# =============================================================================
 
 
 @app.command()
