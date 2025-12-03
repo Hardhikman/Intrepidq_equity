@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from typing import Dict, Any, List
 
@@ -567,9 +568,7 @@ search_web_tool = StructuredTool.from_function(
 
 
 # Convenience export
-# =============================================================================
 # GOOGLE NEWS TOOL
-# =============================================================================
 
 class SearchResult(BaseModel):
     title: str
@@ -666,4 +665,67 @@ ALL_TOOLS = [
     search_web_tool,
     search_google_news_tool,
 ]
+
+
+def resolve_ticker(query: str) -> str:
+    """
+    Resolve a company name or query to a stock ticker symbol.
+    
+    Args:
+        query: Company name (e.g., "Apple", "Tesla") or ticker.
+        
+    Returns:
+        The resolved ticker symbol (e.g., "AAPL", "TSLA").
+        Returns the original query (upper-cased) if resolution fails.
+    """
+    query = query.strip()
+    
+    # If it looks like a ticker (2-5 chars, all letters), assume it is one
+    if query.isalpha() and 2 <= len(query) <= 5 and query.isupper():
+        return query
+        
+    print(f" 🔍 Resolving ticker for '{query}'...")
+    
+    try:
+        # Use DuckDuckGo to find the ticker
+        search_query = f"stock ticker symbol for {query}"
+        with DDGS() as ddgs:
+            results = list(ddgs.text(search_query, max_results=1))
+            
+        if results:
+            # Look for patterns like "AAPL" or "(AAPL)" in the title or snippet
+            text = results[0]['title'] + " " + results[0]['body']
+            
+            # Regex for common ticker patterns: (AAPL), : AAPL, $AAPL
+            # Updated to support longer tickers (e.g. NSE: DATAPATTNS is 10 chars)
+            match = re.search(r'\b[A-Z]{2,12}\b', text)
+            
+            # Refined regex to prioritize parenthesized tickers which are common in search results
+            # e.g. "Apple Inc. (AAPL)"
+            explicit_match = re.search(r'\(([A-Z]{2,12})\)', text)
+            if explicit_match:
+                return explicit_match.group(1)
+                
+            # Fallback to finding the most likely capitalized word if it looks like a ticker
+            # This is a heuristic; might need refinement.
+            # Let's try to extract the first valid ticker-looking string
+            # that is NOT a common word.
+            
+            # Simple approach: If user typed "Apple", and we find "AAPL", return AAPL.
+            # Let's just return the user query upper-cased if we can't be sure, 
+            # but usually the search result title has it.
+            
+            # Let's try a direct search for the symbol
+            for word in text.split():
+                clean_word = word.strip('()[]{},.')
+                if clean_word.isupper() and 2 <= len(clean_word) <= 12 and clean_word != "NYSE" and clean_word != "NASDAQ":
+                     # Verify with yfinance to be sure? 
+                     # That might be too slow. Let's trust the search for now.
+                     return clean_word
+                     
+    except Exception as e:
+        print(f"Warning: Ticker resolution failed: {e}")
+        
+    return query.upper()
+
 

@@ -69,12 +69,12 @@ The system uses a **4-agent pipeline** powered by Google Gemini and LangGraph:
 Run analysis for a specific stock ticker:
 
 ```bash
-python main.py analyze TICKER
+python chat.py analyze TICKER
 ```
 
 **Example:**
 ```bash
-python main.py analyze MSFT
+python chat.py analyze MSFT
 ```
 
 The report will be:
@@ -85,13 +85,13 @@ The report will be:
 **Options:**
 ```bash
 # Analyze without saving to file
-python main.py analyze AAPL --no-save-file
+python chat.py analyze AAPL --no-save-file
 
 # Analyze with real-time event streaming (default)
-python main.py analyze GOOGL --stream
+python chat.py analyze GOOGL --stream
 
 # Interactive chat mode
-python main.py chat
+python chat.py start
 
 # Database maintenance
 python db_fileops/db_maintenance.py stats
@@ -136,7 +136,7 @@ Intrepidq_equity/
 │   ├── definitions.py        # Financial & news tools
 │   ├── validation.py         # Data quality checks
 │   └── chat_tools.py         # Chat-specific tools
-├── main.py                    # CLI entry point
+├── chat.py                    # CLI entry point (Unified)
 ├── config.py                  # Configuration
 └── docs/                      # Documentation
 ```
