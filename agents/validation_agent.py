@@ -17,11 +17,14 @@ async def run_validation(ticker: str, data_agent_output: Dict[str, Any]) -> Dict
     3. Validate completeness of the enriched data
     4. Verify accuracy between sources
     """
-    print(f"--- Starting Validation for {ticker} ---")
+    from utils.cli_logger import logger
+    
+    # NOTE: Header is already logged by the graph node wrapper
     
     financial_data = data_agent_output.get("financial_data", {})
     
     if not financial_data:
+        logger.log_warning("No financial data found to validate.")
         return {
             "ticker": ticker,
             "validation_report": "⚠️ No financial data found to validate.",
@@ -32,7 +35,7 @@ async def run_validation(ticker: str, data_agent_output: Dict[str, Any]) -> Dict
         }
     
     # 1. Fetch Alpha Vantage data first
-    print(f" [Validation] Verifying data with Alpha Vantage...")
+    logger.log_step("Verifying data with Alpha Vantage...", emoji="🔎")
     av_result = get_alpha_vantage_data_tool.func(ticker)
     
     enrichment_report = ""
@@ -43,18 +46,21 @@ async def run_validation(ticker: str, data_agent_output: Dict[str, Any]) -> Dict
         av_data = av_result["data"]
         
         # 2. Fill missing Yahoo data with Alpha Vantage data
-        print(f" [Validation] Filling missing data from Alpha Vantage...")
+        logger.log_step("Filling missing data from Alpha Vantage...", emoji="💉")
         fill_result = fill_missing_from_alpha_vantage(financial_data, av_data)
         enriched_data = fill_result["filled_data"]
         filled_metrics = fill_result["filled_metrics"]
         enrichment_report = fill_result["fill_report"]
         
         if filled_metrics:
-            print(f" [Validation] Filled {len(filled_metrics)} missing metric(s): {', '.join(filled_metrics[:5])}")
+            count = len(filled_metrics)
+            metrics_str = ", ".join(filled_metrics[:5])
+            logger.log_success(f"Filled {count} missing metric(s): {metrics_str}")
     else:
         enrichment_report = "\n### ⚠️ Data Enrichment Skipped\nCould not fetch data from Alpha Vantage."
         if "error" in av_result:
             enrichment_report += f"\nError: {av_result['error']}"
+        logger.log_warning("Could not fetch data from Alpha Vantage for enrichment.")
     
     # 3. Validate completeness of the ENRICHED data
     validation_result = validate_data_completeness(enriched_data)

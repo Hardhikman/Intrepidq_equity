@@ -23,9 +23,11 @@ async def run_synthesis(ticker: str, analysis_result: Dict[str, Any], validation
     """
     Run the synthesis process.
     """
+    from utils.cli_logger import logger
+    
     chain = build_synthesis_agent()
     
-    print(f"--- Starting Synthesis for {ticker} ---")
+    logger.log_step(f"Synthesizing final report for {ticker}...", emoji="✍️")
     
     # Extract relevant parts
     analysis_output = analysis_result.get("analysis_output", "No analysis provided.")

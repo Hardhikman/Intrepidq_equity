@@ -18,14 +18,24 @@ class AgentState(TypedDict):
 #Node Wrappers
 
 async def data_collection_node(state: AgentState):
-    ticker = state["ticker"]
+    ticker = state.get("ticker")
+    if not ticker:
+        raise ValueError("Missing 'ticker' in state for data_collection_node")
     result = await run_data_collection(ticker)
     return {"data_result": result}
 
 async def validation_node(state: AgentState):
-    ticker = state["ticker"]
-    data_result = state["data_result"]
+    from utils.cli_logger import logger
+    ticker = state.get("ticker")
+    data_result = state.get("data_result", {})
+    
+    if not ticker:
+        raise ValueError("Missing 'ticker' in state for validation_node")
+    
+    logger.start_section(f"Validation: {ticker}", style="bold yellow")
+    
     result = await run_validation(ticker, data_result)
+    
     return {
         "validation_result": result,
         "conflicts": result.get("conflicts", [])
@@ -38,9 +48,12 @@ async def human_review_node(state: AgentState):
     return {}
 
 async def analysis_node(state: AgentState):
+    from utils.cli_logger import logger
     ticker = state["ticker"]
     data_result = state["data_result"]
     validation_result = state.get("validation_result", {})
+    
+    logger.start_section(f"Analysis: {ticker}", style="bold magenta")
     
     # Use enriched data if available (data filled from Alpha Vantage)
     enriched_data = validation_result.get("enriched_data")
@@ -49,15 +62,20 @@ async def analysis_node(state: AgentState):
         data_result = {**data_result, "financial_data": enriched_data}
     
     result = await run_analysis(ticker, data_result)
+    
     return {"analysis_result": result}
 
 async def synthesis_node(state: AgentState):
+    from utils.cli_logger import logger
     ticker = state["ticker"]
     analysis_result = state["analysis_result"]
     validation_result = state["validation_result"]
     data_result = state["data_result"]
     
+    logger.start_section(f"Synthesis: {ticker}", style="bold blue")
+    
     report = await run_synthesis(ticker, analysis_result, validation_result, data_result)
+    
     return {"final_report": report}
 
 #Conditional Logic
