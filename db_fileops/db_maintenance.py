@@ -182,6 +182,105 @@ def delete_ticker(ticker: str, confirm: bool = typer.Option(False, "--confirm", 
     console.print(f"[green]✓ Deleted {deleted} report(s) for {ticker}[/green]")
 
 
+@app.command(name="cleanup-by-date")
+def cleanup_by_date(
+    before: Optional[str] = typer.Option(None, help="Delete reports before this date (YYYY-MM-DD)"),
+    older_than: Optional[int] = typer.Option(None, help="Delete reports older than N days"),
+    ticker: Optional[str] = typer.Option(None, help="Only cleanup specific ticker"),
+    dry_run: bool = typer.Option(False, help="Preview what would be deleted without actually deleting")
+):
+    """
+    Delete reports based on date criteria.
+    
+    Examples:
+        python db_fileops/db_maintenance.py cleanup-by-date --before 2025-12-08
+        python db_fileops/db_maintenance.py cleanup-by-date --older-than 7
+        python db_fileops/db_maintenance.py cleanup-by-date --older-than 7 --ticker TSLA
+    """
+    from datetime import datetime, timedelta
+    
+    if not before and older_than is None:
+        console.print("[red]Error: Must specify either --before DATE or --older-than DAYS[/red]")
+        return
+    
+    # Calculate cutoff date
+    if before:
+        try:
+            cutoff_date = datetime.strptime(before, "%Y-%m-%d")
+        except ValueError:
+            console.print("[red]Error: Invalid date format. Use YYYY-MM-DD[/red]")
+            return
+    else:
+        cutoff_date = datetime.now() - timedelta(days=older_than)
+    
+    cutoff_str = cutoff_date.strftime("%Y-%m-%d %H:%M:%S")
+    
+    if dry_run:
+        console.print("[yellow]DRY RUN MODE - No changes will be made[/yellow]\n")
+    
+    console.print(f"[cyan]Cutoff date:[/cyan] {cutoff_date.strftime('%Y-%m-%d')}")
+    if ticker:
+        console.print(f"[cyan]Filtering by ticker:[/cyan] {ticker.upper()}")
+    console.print()
+    
+    with sqlite3.connect(DB_PATH) as conn:
+        cur = conn.cursor()
+        
+        # Build query
+        if ticker:
+            cur.execute(
+                """
+                SELECT id, ticker, created_at, LENGTH(report) as report_len 
+                FROM analysis_reports 
+                WHERE created_at < ? AND ticker = ?
+                ORDER BY created_at DESC
+                """,
+                (cutoff_str, ticker.upper())
+            )
+        else:
+            cur.execute(
+                """
+                SELECT id, ticker, created_at, LENGTH(report) as report_len 
+                FROM analysis_reports 
+                WHERE created_at < ?
+                ORDER BY created_at DESC
+                """,
+                (cutoff_str,)
+            )
+        
+        rows = cur.fetchall()
+        
+        if not rows:
+            console.print("[green]No reports found matching the criteria[/green]")
+            return
+        
+        # Display reports to be deleted
+        table = Table(title=f"Reports to Delete ({len(rows)} total)")
+        table.add_column("ID", style="dim")
+        table.add_column("Ticker", style="cyan")
+        table.add_column("Date", style="yellow")
+        table.add_column("Report Size", style="white")
+        
+        for row in rows:
+            report_id, tick, date, report_len = row
+            size_display = f"{report_len:,} chars"
+            if report_len < 2000:
+                size_display = f"[red]{size_display} (incomplete?)[/red]"
+            table.add_row(str(report_id), tick, date, size_display)
+        
+        console.print(table)
+        
+        if not dry_run:
+            # Delete the reports
+            ids_to_delete = [row[0] for row in rows]
+            placeholders = ','.join('?' * len(ids_to_delete))
+            cur.execute(f"DELETE FROM analysis_reports WHERE id IN ({placeholders})", ids_to_delete)
+            conn.commit()
+            console.print(f"\n[green]✓ Deleted {len(rows)} report(s)[/green]")
+        else:
+            console.print(f"\n[yellow]Would delete {len(rows)} report(s). Run without --dry-run to execute.[/yellow]")
+
+
 @app.command()
 def list_tickers():
     """List all tickers in the database with report counts."""
@@ -202,6 +301,38 @@ def list_tickers():
         table.add_row(str(idx), item["ticker"], str(item["count"]))
     
     console.print(table)
+
+
+@app.command(name="purge-all")
+def purge_all(confirm: bool = typer.Option(False, "--confirm", help="Confirm deletion of ALL reports")):
+    """
+    Delete ALL reports from the database.
+    
+    WARNING: This permanently deletes all analysis reports!
+    
+    Example:
+        python db_fileops/db_maintenance.py purge-all --confirm
+    """
+    with sqlite3.connect(DB_PATH) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM analysis_reports")
+        total = cur.fetchone()[0]
+    
+    if total == 0:
+        console.print("[yellow]Database is already empty[/yellow]")
+        return
+    
+    if not confirm:
+        console.print(f"[red]⚠️  WARNING: This will permanently delete ALL {total} report(s)[/red]")
+        console.print("[yellow]Use --confirm flag to proceed: python db_fileops/db_maintenance.py purge-all --confirm[/yellow]")
+        return
+    
+    with sqlite3.connect(DB_PATH) as conn:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM analysis_reports")
+        conn.commit()
+    
+    console.print(f"[green]✓ Deleted all {total} report(s) from database[/green]")
 
 
 if __name__ == "__main__":
