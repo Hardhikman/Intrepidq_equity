@@ -335,5 +335,90 @@ def purge_all(confirm: bool = typer.Option(False, "--confirm", help="Confirm del
     console.print(f"[green]✓ Deleted all {total} report(s) from database[/green]")
 
 
+@app.command(name="cleanup-files")
+def cleanup_files(
+    ticker: Optional[str] = typer.Option(None, help="Only cleanup specific ticker"),
+    keep: int = typer.Option(3, help="Number of latest files to keep per ticker"),
+    dry_run: bool = typer.Option(False, help="Preview what would be deleted without actually deleting")
+):
+    """
+    Cleanup old report files in the reports/ directory.
+    
+    This command manages markdown report files, keeping only the latest N per ticker.
+    
+    Examples:
+        python db_fileops/db_maintenance.py cleanup-files
+        python db_fileops/db_maintenance.py cleanup-files --ticker AAPL
+        python db_fileops/db_maintenance.py cleanup-files --keep 1 --dry-run
+    """
+    from pathlib import Path
+    import re
+    
+    reports_dir = Path(os.path.dirname(os.path.dirname(__file__))) / "reports"
+    
+    if not reports_dir.exists():
+        console.print("[yellow]No reports directory found[/yellow]")
+        return
+    
+    if dry_run:
+        console.print("[yellow]DRY RUN MODE - No changes will be made[/yellow]\n")
+    
+    # Group files by ticker
+    ticker_files = {}
+    file_pattern = re.compile(r"^([A-Z]+)_\d{8}_\d{6}\.md$")
+    
+    for f in reports_dir.iterdir():
+        if f.is_file():
+            match = file_pattern.match(f.name)
+            if match:
+                tick = match.group(1)
+                if ticker and tick != ticker.upper():
+                    continue
+                if tick not in ticker_files:
+                    ticker_files[tick] = []
+                ticker_files[tick].append(f)
+    
+    if not ticker_files:
+        console.print("[green]No report files found matching criteria[/green]")
+        return
+    
+    # Sort each ticker's files by modification time (latest first)
+    for tick in ticker_files:
+        ticker_files[tick].sort(key=lambda x: x.stat().st_mtime, reverse=True)
+    
+    # Build table
+    table = Table(title="Report Files Cleanup" + (" Preview" if dry_run else ""))
+    table.add_column("Ticker", style="cyan")
+    table.add_column("Total Files", style="yellow")
+    table.add_column("To Delete", style="red")
+    table.add_column("Keep", style="green")
+    
+    total_to_delete = 0
+    files_to_delete = []
+    
+    for tick, files in sorted(ticker_files.items()):
+        to_delete = max(0, len(files) - keep)
+        if to_delete > 0:
+            table.add_row(tick, str(len(files)), str(to_delete), str(keep))
+            total_to_delete += to_delete
+            files_to_delete.extend(files[keep:])
+    
+    if total_to_delete == 0:
+        console.print("[green]No files need cleanup[/green]")
+        return
+    
+    console.print(table)
+    console.print(f"\n[bold]Total files to delete:[/bold] {total_to_delete}")
+    
+    if dry_run:
+        console.print("\n[bold]Files that would be deleted:[/bold]")
+        for f in files_to_delete:
+            console.print(f"  [dim]{f.name}[/dim]")
+    else:
+        for f in files_to_delete:
+            f.unlink()
+        console.print(f"\n[green]✓ Deleted {total_to_delete} file(s)[/green]")
+
+
 if __name__ == "__main__":
     app()

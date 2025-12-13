@@ -151,10 +151,16 @@ def _extract_response_content(content: str | list) -> str:
         return "".join(text_parts)
     return str(content)
 
-async def run_analysis_workflow(ticker: str, user_id: str = None, save_file: bool = True):
+async def run_analysis_workflow(ticker: str, user_id: str = None, save_file: bool = True, auto_save: bool = False):
     """
     Async implementation of the analysis workflow using LangGraph.
     Features clean CLI logging with spinners and progress tracking.
+    
+    Args:
+        ticker: Stock ticker symbol or company name
+        user_id: User identifier for database storage
+        save_file: Whether to save report to markdown file
+        auto_save: If True, skip confirmation prompt and save to both file and database
     """
     from utils.cli_logger import logger
     
@@ -262,18 +268,39 @@ async def run_analysis_workflow(ticker: str, user_id: str = None, save_file: boo
                 style="cyan"
             )
 
-            # Save to database
-            await memory.save_analysis_to_memory(
-                session_id=session_id,
-                user_id=user_id,
-                ticker=ticker,
-                report=final_text,
-            )
+            # Human-in-the-loop: Ask user for save confirmation
+            if not auto_save:
+                save_choice = Prompt.ask(
+                    "\n[bold yellow]💾 Save this report?[/bold yellow]\n"
+                    "  [cyan]yes[/cyan] = Save to file AND database\n"
+                    "  [cyan]no[/cyan] = Save to file only\n"
+                    "  [cyan]cancel[/cyan] = Discard report",
+                    choices=["yes", "no", "cancel"],
+                    default="yes"
+                )
+                
+                if save_choice == "cancel":
+                    logger.log_warning("Report discarded by user.")
+                    return
+            else:
+                save_choice = "yes"  # Auto-save mode saves to both
             
-            # Save to file if requested
+            # Save to file (always, unless cancelled)
             if save_file:
                 filepath = _save_report_to_file(final_text, ticker, session_id)
                 logger.log_success(f"Report saved to: {filepath}")
+            
+            # Save to database only if user chooses "yes"
+            if save_choice == "yes":
+                await memory.save_analysis_to_memory(
+                    session_id=session_id,
+                    user_id=user_id,
+                    ticker=ticker,
+                    report=final_text,
+                )
+                logger.log_success("Report saved to database.")
+            else:
+                console.print("[dim]Report saved to file only (not added to database).[/dim]")
 
     except Exception as e:
         logger.log_error(f"ERROR: {e}")
@@ -285,12 +312,20 @@ def analyze(
     ticker: str,
     user_id: str = None,
     save_file: bool = typer.Option(True, "--save-file/--no-save-file", help="Save report to markdown file"),
-    stream: bool = typer.Option(True, "--stream/--no-stream", help="Stream agent events in real-time")
+    stream: bool = typer.Option(True, "--stream/--no-stream", help="Stream agent events in real-time"),
+    auto_save: bool = typer.Option(False, "--auto-save", help="Skip confirmation prompt, save to both file and database")
 ):
     """
     Run multi-agent equity analysis on a stock ticker.
+    
+    After analysis, you will be prompted to save the report:
+    - 'yes': Save to file AND database
+    - 'no': Save to file only
+    - 'cancel': Discard the report
+    
+    Use --auto-save to skip the prompt and save to both automatically.
     """
-    asyncio.run(run_analysis_workflow(ticker, user_id, save_file))
+    asyncio.run(run_analysis_workflow(ticker, user_id, save_file, auto_save))
 
 
 async def run_chat_loop(initial_ticker: str | None = None) -> None:

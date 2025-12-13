@@ -83,17 +83,51 @@ def init_db() -> None:
 # Initialize on import
 init_db()
 
+def cleanup_old_report_files(ticker: str, keep_latest_n: int = REPORTS_TO_KEEP) -> int:
+    """
+    Delete old report files for a specific ticker, keeping only the latest N.
+    
+    Args:
+        ticker: Stock ticker symbol
+        keep_latest_n: Number of latest report files to keep
+    
+    Returns:
+        Number of files deleted
+    """
+    from pathlib import Path
+    import re
+    
+    reports_dir = Path("reports")
+    if not reports_dir.exists():
+        return 0
+    
+    # Find all files for this ticker (pattern: TICKER_YYYYMMDD_HHMMSS.md)
+    pattern = re.compile(rf"^{ticker.upper()}_\d{{8}}_\d{{6}}\.md$")
+    ticker_files = sorted(
+        [f for f in reports_dir.iterdir() if pattern.match(f.name)],
+        key=lambda x: x.stat().st_mtime,
+        reverse=True  # Latest first
+    )
+    
+    # Delete all except the latest N
+    files_to_delete = ticker_files[keep_latest_n:]
+    for f in files_to_delete:
+        f.unlink()
+    
+    return len(files_to_delete)
+
 
 def cleanup_old_reports(ticker: str, keep_latest_n: int = REPORTS_TO_KEEP) -> int:
     """
     Delete old reports for a specific ticker, keeping only the latest N.
+    Also cleans up old report files in the reports/ directory.
     
     Args:
         ticker: Stock ticker symbol
         keep_latest_n: Number of latest reports to keep (default: 3)
     
     Returns:
-        Number of reports deleted
+        Number of database reports deleted
     """
     with sqlite3.connect(DB_PATH) as conn:
         cur = conn.cursor()
@@ -118,8 +152,13 @@ def cleanup_old_reports(ticker: str, keep_latest_n: int = REPORTS_TO_KEEP) -> in
                 ids_to_delete
             )
             conn.commit()
+    
+    # Also cleanup old report files
+    files_deleted = cleanup_old_report_files(ticker, keep_latest_n)
+    if files_deleted > 0:
+        print(f" [File Cleanup] Deleted {files_deleted} old file(s) for {ticker}")
             
-        return len(ids_to_delete)
+    return len(ids_to_delete)
 
 
 def cleanup_all_tickers(keep_latest_n: int = REPORTS_TO_KEEP) -> Dict[str, int]:
