@@ -33,7 +33,7 @@ The `get_deep_financials` tool provides the following metrics:
 - `free_cash_flow` / `operating_cashflow`: Cash flow metrics
 
 **New Metrics:**
-- `technicals`: Dictionary containing `rsi`, `macd`, `sma_50`, `sma_200`.
+- `technicals`: Dictionary containing `rsi`, `macd`, `sma_50`, `sma_200`, `sma_200_weeks` (200-week SMA for long-term trend).
 - `risk_metrics`: Dictionary containing `volatility_annualized`, `max_drawdown`, `sharpe_ratio`.
 - `financial_trends`: Dictionary containing `revenue_trend`, `debt_trend`, `capex_trend`, `retained_earnings_trend` (based on last 4 quarters).
 - `volume_trends`: Dictionary containing `latest_volume`, `avg_volume_10d`, `avg_volume_50d`, `volume_spike`, `volume_trend`.
@@ -53,6 +53,10 @@ The `get_deep_financials` tool provides the following metrics:
 - 🚩 Bearish Trend: `current_price < sma_200`
 - 🟢 Golden Cross: `sma_50` crosses above `sma_200` (Strong Buy Signal)
 - 🚩 Death Cross: `sma_50` crosses below `sma_200` (Strong Sell Signal)
+
+**200-Week SMA (Long-Term Trend)**
+- 🟢 **Buying Opportunity**: `current_price < sma_200_weeks` (Price below 200-week SMA = historically strong buying opportunity)
+- 🚩 **Caution**: `current_price > sma_200_weeks` (Price above 200-week SMA = extended, potential for pullback)
 
 **MACD**
 - 🟢 Bullish: `macd > macd_signal`

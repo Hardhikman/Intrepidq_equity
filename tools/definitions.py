@@ -2,6 +2,7 @@ import os
 import re
 from pathlib import Path
 from typing import Dict, Any, List
+from urllib.parse import urlparse
 
 
 from pydantic import BaseModel, Field
@@ -62,9 +63,28 @@ def _sanitize_for_json(obj):
     # Return as-is for other types (str, int, bool, etc.)
     return obj
 
-
 # Base directory for skills
 SKILLS_DIR = Path(__file__).parent.parent / "context_engineering" / "skills"
+
+
+def _extract_domain(url: str) -> str:
+    """
+    Extract website domain from URL.
+    
+    Args:
+        url: Full URL string
+        
+    Returns:
+        Domain name (e.g., 'reuters.com') or 'unknown' if extraction fails
+    """
+    if not url:
+        return "unknown"
+    try:
+        domain = urlparse(url).netloc
+        # Remove 'www.' prefix if present
+        return domain.replace('www.', '') if domain else "unknown"
+    except Exception:
+        return "unknown"
 
 
 def _safe_trend(values: list, increasing: bool = True, use_abs: bool = False) -> str:
@@ -200,14 +220,21 @@ def _get_deep_financials(ticker: str) -> Dict[str, Any]:
         info = stock.info
         
         #1. Historical Data & Technicals 
-        hist = stock.history(period="2y")
+        # Extended to 5y to support 200-week SMA (200 weeks ≈ 4 years)
+        hist = stock.history(period="5y")
         technicals = {}
         risk_metrics = {}
         
         if not hist.empty:
-            # SMA
+            # Daily SMA (50 and 200 days)
             hist['SMA_50'] = hist['Close'].rolling(window=50).mean()
             hist['SMA_200'] = hist['Close'].rolling(window=200).mean()
+            
+            # Weekly SMA (200 weeks) - resample to weekly, then calculate SMA
+            weekly_close = hist['Close'].resample('W').last()
+            sma_200_weeks = weekly_close.rolling(window=200).mean()
+            # Get the latest 200-week SMA value
+            sma_200w_value = sma_200_weeks.iloc[-1] if not sma_200_weeks.empty else None
             
             # RSI
             delta = hist['Close'].diff()
@@ -240,6 +267,7 @@ def _get_deep_financials(ticker: str) -> Dict[str, Any]:
                 "current_price": _safe_value(latest['Close']),
                 "sma_50": _safe_value(latest['SMA_50']),
                 "sma_200": _safe_value(latest['SMA_200']),
+                "sma_200_weeks": _safe_value(sma_200w_value),  # NEW: 200-week SMA
                 "rsi": _safe_value(latest['RSI']),
                 "macd": _safe_value(macd.iloc[-1]),
                 "macd_signal": _safe_value(signal.iloc[-1]),
@@ -621,10 +649,12 @@ def _check_strategic_triggers(ticker: str) -> Dict[str, Any]:
     else:
         parts = []
         for s in signals:
+            source = _extract_domain(s.get('url', ''))
             parts.append(
                 f"🔎 Query: {s['query']}\n"
                 f"   Title: {s['title']}\n"
-                f"   Date: {s['date']}"
+                f"   Date: {s['date']}\n"
+                f"   Source: {source}"
             )
         summary = "\n\n".join(parts)
 

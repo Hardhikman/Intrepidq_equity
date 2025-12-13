@@ -94,6 +94,7 @@ synthesis_agent_prompt = ChatPromptTemplate.from_messages([
      "\n"
      "## 📊 Technical & Risk Profile "
      "- Trend: Bullish/Bearish (based on SMA/MACD from data) "
+     "- 200-Week SMA: If price < sma_200_weeks = Buying Opportunity, else Caution "
      "- RSI Status: Overbought (>70) / Oversold (<30) / Neutral "
      "- Risk Level: Low/Medium/High (based on Volatility, Sharpe Ratio, Beta) "
      "\n"
