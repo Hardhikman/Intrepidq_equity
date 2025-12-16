@@ -140,6 +140,9 @@ async def run_data_collection(ticker: str) -> Dict[str, Any]:
     
     if not financial_data:
         logger.log_warning("No financial_data extracted from tool outputs!")
+    else:
+        # Log financial data to CLI with Rich table
+        logger.log_financial_data(financial_data)
     
     return {
         "ticker": ticker,

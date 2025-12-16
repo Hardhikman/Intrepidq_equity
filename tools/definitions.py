@@ -1,5 +1,6 @@
 import os
 import re
+import time
 from pathlib import Path
 from typing import Dict, Any, List
 from urllib.parse import urlparse
@@ -597,6 +598,8 @@ def _check_strategic_triggers(ticker: str) -> Dict[str, Any]:
 
     Uses DuckDuckGo search (DDGS) synchronously for simplicity.
     """
+    from utils.cli_logger import logger
+    
     ticker = ticker.upper().strip()
     print(f" [News Tool] Scanning headlines for {ticker}...")
 
@@ -627,19 +630,22 @@ def _check_strategic_triggers(ticker: str) -> Dict[str, Any]:
 
 
     for q in search_queries:
+        time.sleep(0.3)  # Rate limit: 300ms delay to avoid empty gzip responses
         try:
             with DDGS() as ddgs:
                 results = list(ddgs.news(q, max_results=3))
             if results:
                 for r in results:
-                    signals.append(
-                        {
-                            "query": q,
-                            "title": r.get("title"),
-                            "date": r.get("date"),
-                            "url": r.get("url", ""),
-                        }
-                    )
+                    signal = {
+                        "query": q,
+                        "title": r.get("title"),
+                        "date": r.get("date"),
+                        "url": r.get("url", ""),
+                    }
+                    signals.append(signal)
+                    # Stream each news item to CLI in real-time
+                    source = _extract_domain(signal.get('url', ''))
+                    logger.log_news_item(signal.get("title", ""), signal.get("date", ""), source)
         except Exception as e:
             errors.append({"query": q, "error": str(e)})
 
@@ -779,6 +785,7 @@ def _search_google_news(query: str, max_results: int = 5) -> List[Dict[str, str]
     """
     import requests
     from concurrent.futures import ThreadPoolExecutor
+    from utils.cli_logger import logger
     
     print(f" [Google News] Searching for: {query}...")
     
@@ -797,11 +804,15 @@ def _search_google_news(query: str, max_results: int = 5) -> List[Dict[str, str]
 
         final_results = []
         for r, resolved in zip(results, resolved_urls):
-            final_results.append({
+            result = {
                 "title": r.title,
                 "url": resolved,
                 "published_date": r.published_date
-            })
+            }
+            final_results.append(result)
+            # Stream each news item to CLI in real-time
+            source = _extract_domain(resolved)
+            logger.log_news_item(r.title, r.published_date[:20] if r.published_date else "", source)
             
         return final_results
         

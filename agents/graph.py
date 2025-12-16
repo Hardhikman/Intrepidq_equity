@@ -18,10 +18,19 @@ class AgentState(TypedDict):
 #Node Wrappers
 
 async def data_collection_node(state: AgentState):
+    from utils.cli_logger import logger
     ticker = state.get("ticker")
     if not ticker:
         raise ValueError("Missing 'ticker' in state for data_collection_node")
+    
+    # Explicit phase start logging
+    logger.tracker.start_phase("Data Collection")
+    logger.phase_detail("Data Collection", f"Collecting data for {ticker}")
+    logger.console.print(f"\n[bold cyan]▶ Phase 1: Data Collection[/bold cyan] - Fetching financials, news, and signals for {ticker}")
+    
     result = await run_data_collection(ticker)
+    
+    logger.console.print(f"[green]✓ Data Collection complete[/green]")
     return {"data_result": result}
 
 async def validation_node(state: AgentState):
@@ -35,8 +44,11 @@ async def validation_node(state: AgentState):
     # Phase tracking with spinner
     logger.tracker.start_phase("Validation")
     logger.phase_detail("Validation", f"Validating data for {ticker}")
+    logger.console.print(f"\n[bold cyan]▶ Phase 2: Validation[/bold cyan] - Checking data quality and completeness")
     
     result = await run_validation(ticker, data_result)
+    
+    logger.console.print(f"[green]✓ Validation complete[/green] - Completeness: {result.get('completeness_score', 0):.0f}%")
     
     return {
         "validation_result": result,
@@ -58,6 +70,7 @@ async def analysis_node(state: AgentState):
     # Phase tracking with spinner
     logger.tracker.start_phase("Analysis")
     logger.phase_detail("Analysis", f"Analyzing {ticker}")
+    logger.console.print(f"\n[bold cyan]▶ Phase 3: Analysis[/bold cyan] - Generating investment thesis for {ticker}")
     
     # Use enriched data if available (data filled from Alpha Vantage)
     enriched_data = validation_result.get("enriched_data")
@@ -66,6 +79,7 @@ async def analysis_node(state: AgentState):
     
     result = await run_analysis(ticker, data_result)
     
+    logger.console.print(f"[green]✓ Analysis complete[/green]")
     return {"analysis_result": result}
 
 async def synthesis_node(state: AgentState):
@@ -78,9 +92,11 @@ async def synthesis_node(state: AgentState):
     # Phase tracking with spinner
     logger.tracker.start_phase("Synthesis")
     logger.phase_detail("Synthesis", f"Generating report for {ticker}")
+    logger.console.print(f"\n[bold cyan]▶ Phase 4: Synthesis[/bold cyan] - Compiling final report for {ticker}")
     
     report = await run_synthesis(ticker, analysis_result, validation_result, data_result)
     
+    logger.console.print(f"[green]✓ Synthesis complete[/green]")
     return {"final_report": report}
 
 #Conditional Logic

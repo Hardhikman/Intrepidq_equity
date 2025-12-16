@@ -238,6 +238,170 @@ class IntrepidQLogger:
     def print_panel(self, content: str, title: str, style: str = "cyan"):
         """Print detailed content in a panel."""
         self.console.print(Panel(content, title=title, border_style=style))
+    
+    def log_financial_data(self, data) -> None:
+        """
+        Display financial data as a Rich table.
+        
+        Args:
+            data: FinancialData Pydantic model or dict with financial metrics
+        """
+        from utils.models import FinancialData
+        
+        # Temporarily stop spinner if active (so table displays properly)
+        spinner_was_active = self._status is not None
+        if spinner_was_active:
+            self._status.stop()
+        
+        # Handle both Pydantic model and dict
+        if isinstance(data, dict):
+            try:
+                data = FinancialData(**data)
+            except Exception as e:
+                self.log_warning(f"Could not parse financial data: {e}")
+                if spinner_was_active and self._status:
+                    self._status.start()
+                return
+        
+        # Build the table
+        table = Table(
+            title=f"📊 [bold]{data.ticker}[/bold] Financial Summary",
+            box=ROUNDED,
+            show_header=True,
+            header_style="bold cyan",
+            width=80
+        )
+        table.add_column("Category", style="cyan", width=20)
+        table.add_column("Metric", style="white", width=25)
+        table.add_column("Value", style="green", justify="right", width=20)
+        
+        # Helper to format values
+        def fmt(val, fmt_type="number"):
+            if val is None:
+                return "[dim]N/A[/dim]"
+            if fmt_type == "price":
+                return f"${val:,.2f}"
+            elif fmt_type == "percent":
+                return f"{val * 100:.1f}%"
+            elif fmt_type == "ratio":
+                return f"{val:.2f}"
+            elif fmt_type == "large":
+                if val >= 1e12:
+                    return f"${val / 1e12:.2f}T"
+                elif val >= 1e9:
+                    return f"${val / 1e9:.2f}B"
+                elif val >= 1e6:
+                    return f"${val / 1e6:.2f}M"
+                return f"${val:,.0f}"
+            return f"{val:.2f}"
+        
+        # Price & Valuation
+        table.add_row("💰 Price", "Current Price", fmt(data.current_price, "price"))
+        table.add_row("", "Market Cap", fmt(data.market_cap, "large"))
+        table.add_row("", "P/E (Trailing)", fmt(data.trailing_pe, "ratio"))
+        table.add_row("", "P/E (Forward)", fmt(data.forward_pe, "ratio"))
+        table.add_row("", "PEG Ratio", fmt(data.peg_ratio, "ratio"))
+        
+        # Growth & Margins
+        table.add_row("📈 Growth", "Revenue Growth", fmt(data.revenue_growth, "percent"))
+        table.add_row("", "Profit Margin", fmt(data.profit_margins, "percent"))
+        table.add_row("", "ROE", fmt(data.return_on_equity, "percent"))
+        
+        # Risk
+        table.add_row("⚠️ Risk", "Beta", fmt(data.beta, "ratio"))
+        table.add_row("", "Debt/Equity", fmt(data.debt_to_equity, "ratio"))
+        
+        # Technicals (if available)
+        if data.technicals:
+            t = data.technicals
+            table.add_row("📉 Technical", "RSI", fmt(t.rsi, "ratio"))
+            table.add_row("", "SMA 50", fmt(t.sma_50, "price"))
+            table.add_row("", "SMA 200", fmt(t.sma_200, "price"))
+            if t.sma_200_weeks:
+                table.add_row("", "SMA 200 Weeks", fmt(t.sma_200_weeks, "price"))
+        
+        # Risk Metrics (if available)
+        if data.risk_metrics:
+            r = data.risk_metrics
+            table.add_row("📊 Risk Metrics", "Sharpe Ratio", fmt(r.sharpe_ratio, "ratio"))
+            table.add_row("", "Volatility", fmt(r.volatility_annualized, "percent"))
+            table.add_row("", "Max Drawdown", fmt(r.max_drawdown, "percent"))
+        
+        self.console.print()
+        self.console.print(table)
+        self.console.print()
+        
+        # Restart spinner if it was active
+        if spinner_was_active and self._status:
+            self._status.start()
+    
+    def log_news_item(self, title: str, date: str, source: str) -> None:
+        """
+        Log a single news item in real-time as it's fetched.
+        
+        Args:
+            title: News headline
+            date: Publication date
+            source: Source domain (e.g., reuters.com)
+        """
+        # Truncate title if too long
+        if len(title) > 60:
+            title = title[:57] + "..."
+        
+        # Format: 📰 [source] Title (date)
+        self.console.print(f"  📰 [cyan]{source}[/cyan] {title} [dim]({date})[/dim]")
+    
+    def log_news_signals(self, ticker: str, signals: list) -> None:
+        """
+        Display news signals as a Rich table.
+        
+        Args:
+            ticker: Stock ticker
+            signals: List of signal dicts with title, date, url
+        """
+        if not signals:
+            self.console.print("[dim]  No news signals found.[/dim]")
+            return
+        
+        # Temporarily stop spinner if active
+        spinner_was_active = self._status is not None
+        if spinner_was_active:
+            self._status.stop()
+        
+        # Build the table
+        table = Table(
+            title=f"📰 [bold]{ticker}[/bold] News Signals ({len(signals)} found)",
+            box=ROUNDED,
+            show_header=True,
+            header_style="bold cyan",
+            width=90
+        )
+        table.add_column("Source", style="cyan", width=18)
+        table.add_column("Title", style="white", width=50)
+        table.add_column("Date", style="dim", width=18)
+        
+        # Import here to avoid circular imports
+        from tools.definitions import _extract_domain
+        
+        # Show up to 10 signals to keep it readable
+        for signal in signals[:10]:
+            title = signal.get("title", "")
+            if len(title) > 48:
+                title = title[:45] + "..."
+            source = _extract_domain(signal.get("url", ""))
+            date = signal.get("date", "")[:18] if signal.get("date") else ""
+            table.add_row(source, title, date)
+        
+        if len(signals) > 10:
+            table.add_row("...", f"[dim]+{len(signals) - 10} more signals[/dim]", "")
+        
+        self.console.print()
+        self.console.print(table)
+        self.console.print()
+        
+        # Restart spinner if it was active
+        if spinner_was_active and self._status:
+            self._status.start()
         
     def print_summary(self):
         """Print the final progress summary table."""
