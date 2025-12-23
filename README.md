@@ -14,13 +14,14 @@ The system uses a **4-agent pipeline** powered by Google Gemini and LangGraph:
 ## ✨ Features
 
 ### Quantitative Analysis
-- **Fundamentals**: Revenue growth, margins, P/E, Debt/Equity, ROE, FCF
+- **Fundamentals**: Revenue growth, margins, P/E, Debt/Equity, ROE, **ROCE**, **ROA**, FCF
 - **Technicals**: RSI, MACD, SMA (50/200 days), **SMA 200 weeks** (long-term trend)
 - **Risk Metrics**: Volatility, Max Drawdown, Sharpe Ratio, VaR 95%, Beta
+- **Solvency Metrics**: **Interest Coverage Ratio (ICR)** with safety classification
 - **Trends**: Quarterly (4Q) and Annual (3Y) revenue, debt, CapEx, retained earnings with dates
 - **Volume Analysis**: Volume trends, spike detection, and momentum tracking
 - **5-Year Historical Data**: Extended data window for comprehensive analysis
-- **Dividend Tracking**: Yield analysis and payout ratio trends
+- **Dividend Tracking**: Yield analysis, **payout ratio** trends, and annual dividend history
 
 ### Qualitative Research
 - **News Integration**: Google News search for recent events with **source attribution**
@@ -174,15 +175,18 @@ Intrepidq_equity/
 │   ├── synthesis_agent.py     # Report synthesis
 │   ├── chat_agent.py          # Chat interface agent
 │   └── graph.py               # LangGraph workflow orchestration
-├── context_engineering/        # Prompts and skills
+├── context_engineering/       # Prompts and skills
 │   ├── prompts.py             # Agent prompts
-│   ├── memory.py              # Database interactions
-│   └── skills/                # Analysis frameworks
+│   ├── memory.py              # Database interactions (SQLite)
+│   └── skills/                # Analysis frameworks (SKILL.md)
 ├── tools/                     # Tool definitions
 │   ├── definitions.py         # Financial & news tools (yfinance, DDGS)
-│   ├── validation.py          # Data quality checks
+│   ├── validation.py          # Data quality & completeness checks
 │   ├── chat_tools.py          # Chat-specific tools
 │   └── alpha_vantage_client.py # Alpha Vantage API client
+├── db_fileops/                # Database utilities
+│   ├── db_maintenance.py      # Database maintenance & cleanup
+│   └── view_db.py             # Database viewer utility
 ├── utils/                     # Utilities
 │   ├── cli_logger.py          # Rich CLI logging with progress tracking
 │   ├── models.py              # Pydantic data models for financial data
@@ -241,12 +245,19 @@ Edit `config.py` to customize:
 
 ## 📝 Version History
 
+**v4.2** (Dec 23rd 2025) - Documentation & Structure Update
+- ✅ Updated README with complete project structure
+- ✅ Added db_fileops utilities documentation
+- ✅ Comprehensive Pydantic models coverage
+- ✅ Enhanced metrics documentation (ROCE, ROA, ICR, Payout Ratio)
+
 **v4.1** (Dec 20th 2025) - Qualitative & Solvency Deepening
 - ✅ FCF Trend Tracking (QoQ & YoY)
-- ✅ Interest Coverage Ratio (ICR) analysis
+- ✅ Interest Coverage Ratio (ICR) with safety classification
 - ✅ ROCE & ROA implementation
 - ✅ Enhanced Red Flag signals (Legal, Management, Promoter Pledges)
 - ✅ Industry Tailwind detection
+- ✅ Payout Ratio analysis
 
 **v4.0** (Dec 2024) - Production Hardening
 - ✅ Input validation with security checks
@@ -263,14 +274,16 @@ Edit `config.py` to customize:
 ## 🛠️ Technologies
 
 - **LangGraph**: Multi-agent orchestration
-- **Google Gemini**: Large language model
+- **Google Gemini**: Large language model (gemini-2.5-flash)
 - **LangChain**: Agent framework
-- **Pydantic**: Data validation and models
-- **yfinance**: Financial data
-- **DuckDuckGo**: Web search
-- **Google News**: News aggregation
+- **Pydantic**: Data validation and type-safe models
+- **yfinance**: Primary financial data source
+- **Alpha Vantage**: Secondary data source for verification
+- **DuckDuckGo (DDGS)**: Web search for strategic signals
+- **Google News RSS**: News aggregation with source attribution
+- **SQLite**: Local database for report storage
 - **Typer**: CLI framework
-- **Rich**: Terminal formatting
+- **Rich**: Terminal formatting with progress tracking
 
 ## ⚠️ Disclaimer
 
